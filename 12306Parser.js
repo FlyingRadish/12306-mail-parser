@@ -49,7 +49,8 @@ function createICal(tickets) {
     cal = ical({
         domain: 'houxg.github.com',
         name: '12306 Calendar',
-        timezone: 'Asia/Hong_Kong'
+        timezone: 'Asia/Hong_Kong',
+        method: 'request'
     });
     for (var i = 0; i < tickets.length; i++) {
         var ticket = tickets[i];

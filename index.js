@@ -12,14 +12,11 @@ var schedule = require('node-schedule');
 [x] 设为已读
 [x] 定时轮询
 [ ] 查到站时间
-*/
-
-/*
-forever start -l /home/will/log/12306MailParser/forever.log -e /home/will/log/12306MailParser/error.log  --spinSleepTime  60000 index.js
+[ ] 增加识别改签， 过滤退票
 */
 
 var config = {
-    repeatInMinute: 20,
+    repeatInMinute: 5,
     email: 'youemail@gmail.com',
     password: 'yourpassword',
     imap: {
@@ -37,44 +34,56 @@ var conf = new Configstore('12306MailParser', {
     lastNo: 1,
     failed: []
 });
-var imap = new Imap({
-    user: config.email,
-    password: config.password,
-    host: config.imap.host,
-    port: config.imap.port,
-    tls: config.imap.ssl
-});
 
-imap.once('ready', function() {
-    openInbox(true, function(err, box) {
-        if (err) throw err;
-        var seqs = [conf.get('lastNo') + ':' + box.messages.total];
-        seqs = seqs.concat(conf.get('failed'));
-        var currentNo = box.messages.total;
-        var f = imap.seq.fetch(seqs, {
-            bodies: ''
-        });
-        f.on('message', function(msg, seqno) {
-            handleMessage(msg, seqno);
-        });
-        f.once('error', function(err) {
-            console.log('Fetch error: ' + err);
-        });
-        f.once('end', function() {
-            console.log('Done fetching all messages!');
-            conf.set('lastNo', currentNo);
-            imap.end();
+function checkOnce() {
+    var imap = new Imap({
+        user: config.email,
+        password: config.password,
+        host: config.imap.host,
+        port: config.imap.port,
+        tls: config.imap.ssl,
+        debug: console.log
+    });
+
+    imap.once('ready', function() {
+        imap.openBox('INBOX', true, function(err, box) {
+            if (err) throw err;
+            console.log('openInbox, total:' + box.messages.total + ', lastNo:' + conf.get('lastNo'));
+            if (conf.get('lastNo') == box.messages.total) {
+                imap.end();
+                return;
+            }
+            var seqs = [conf.get('lastNo') + ':' + box.messages.total];
+            seqs = seqs.concat(conf.get('failed'));
+            var currentNo = box.messages.total;
+            console.log('fetch mail, param=', seqs);
+            var f = imap.seq.fetch(seqs, {
+                bodies: '',
+                markSeen:
+            });
+            f.on('message', function(msg, seqno) {
+                handleMessage(msg, seqno);
+            });
+            f.once('error', function(err) {
+                console.log('Fetch error: ' + err);
+            });
+            f.once('end', function() {
+                console.log('Done fetching all messages!');
+                conf.set('lastNo', currentNo);
+                imap.end();
+            });
         });
     });
-});
-imap.once('error', function(err) {
-    console.log(err);
-});
+    imap.once('error', function(err) {
+        console.log(err);
+    });
 
-imap.once('end', function() {
-    console.log('Connection ended');
-    imap.end();
-});
+    imap.once('end', function() {
+        console.log('Connection ended');
+        imap.end();
+    });
+    imap.connect();
+}
 
 function handleMessage(msg, seqno, cb) {
     console.log('handleMessage, #' + seqno);
@@ -136,7 +145,7 @@ function sendMail(email, content, callback) {
     });
 }
 
-function openInbox(readOnly, cb) {
+function openInbox(imap, readOnly, cb) {
     imap.openBox('INBOX', readOnly, cb);
 }
 
@@ -144,5 +153,5 @@ var rule = new schedule.RecurrenceRule();
 rule.minute = new schedule.Range(0, 59, config.repeatInMinute);;
 schedule.scheduleJob(rule, function() {
     console.log(new Date(), 'Start a new job');
-    imap.connect();
+    checkOnce();
 });

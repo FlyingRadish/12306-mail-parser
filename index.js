@@ -49,17 +49,20 @@ function checkOnce() {
         imap.openBox('INBOX', true, function(err, box) {
             if (err) throw err;
             console.log('openInbox, total:' + box.messages.total + ', lastNo:' + conf.get('lastNo'));
-            if (conf.get('lastNo') == box.messages.total) {
+            if (conf.get('lastNo') >= box.messages.total) {
+                if (conf.get('lastNo') > box.messages.total) {
+                    conf.set('lastNo', box.messages.total)
+                }
                 imap.end();
                 return;
             }
-            var seqs = [conf.get('lastNo') + ':' + box.messages.total];
+            var seqs = [(conf.get('lastNo') + 1) + ':' + box.messages.total];
             seqs = seqs.concat(conf.get('failed'));
             var currentNo = box.messages.total;
             console.log('fetch mail, param=', seqs);
             var f = imap.seq.fetch(seqs, {
                 bodies: '',
-                markSeen:
+                markSeen: true
             });
             f.on('message', function(msg, seqno) {
                 handleMessage(msg, seqno);
@@ -143,10 +146,6 @@ function sendMail(email, content, callback) {
         }
         console.log('Message sent: ' + info.response);
     });
-}
-
-function openInbox(imap, readOnly, cb) {
-    imap.openBox('INBOX', readOnly, cb);
 }
 
 var rule = new schedule.RecurrenceRule();

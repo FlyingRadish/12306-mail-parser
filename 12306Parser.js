@@ -1,10 +1,10 @@
 var ical = require('ical-generator');
-var config = {
-    alarmType: 'audio',
-    trigger: 60 * 60 //1 hour before event
-};
+var request = require('request');
+var util = require('util');
+var async = require('async');
+var config = require('./config')
 
-function parse(content) {
+function parse(content, cb) {
     if (!content) {
         return;
     }
@@ -38,10 +38,55 @@ function parse(content) {
     }
 
     if (tickets.length > 0) {
-        return {
-            attachments: createICal(tickets).toString(),
-            text: JSON.stringify(tickets)
+        var tasks = [];
+        console.log('ticket size:%d', tickets.length);
+        if (config.api) {
+            tickets.forEach(function(ticket) {
+                var timeStr = ticket['departureTime'].toISOString();
+                var timeStr = timeStr.substring(0, timeStr.indexOf('T'));
+                var url = util.format(config.api + '?train=%s&date=%s',
+                    ticket['trainNumber'],
+                    timeStr);
+                tasks.push(queryAsync(url, ticket));
+            });
+
+            async.series(tasks, function functionName(err, result) {
+                cb({
+                    attachments: createICal(tickets).toString(),
+                    text: JSON.stringify(tickets)
+                });
+            })
+        } else {
+            cb({
+                attachments: createICal(tickets).toString(),
+                text: JSON.stringify(tickets)
+            });
         }
+    }
+}
+
+function queryAsync(url, ticket) {
+    return function(cb) {
+        // console.log(url);
+        request(url, function(err, res, body) {
+            body = JSON.parse(body);
+            if (err || !body.ok) {
+                console.log('erro when finding arrive time with ', ticket);
+                cb(null, null);
+            } else {
+                for (var i = 0; i < body.data.length; i++) {
+                    var info = body.data[i];
+                    if (info.station_name == ticket['to']) {
+                        ticket['arriveTime'] = new Date(info.timeStamp);
+                        break;
+                    }
+                }
+                if (!ticket['arriveTime']) {
+                    console.log('no arrive time with ', ticket);
+                }
+                cb(null, info);
+            }
+        })
     }
 }
 
@@ -61,10 +106,9 @@ function createICal(tickets) {
             timestamp: ticket['departureTime'],
             location: ticket['seat'],
         });
-        var alarm = event.createAlarm({
-            type: config.alarmType,
-            trigger: config.trigger
-        });
+        if (ticket['arriveTime']) {
+            event.end(ticket['arriveTime']);
+        }
     }
     return cal;
 }

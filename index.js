@@ -5,31 +5,17 @@ var trainTicketParser = require('./12306Parser.js');
 var nodemailer = require('nodemailer');
 var Configstore = require('configstore');
 var schedule = require('node-schedule');
+var config = require('./config');
 /*
 [x] 定时任务
 [x] 发送邮件
 [x] 生成iCal/csv
 [x] 设为已读
 [x] 定时轮询
-[ ] 查到站时间
+[x] 查到站时间
 [ ] 增加识别改签， 过滤退票
 */
 
-var config = {
-    repeatInMinute: 5,
-    email: 'youemail@gmail.com',
-    password: 'yourpassword',
-    imap: {
-        host: 'imap.gmail.com',
-        port: 993,
-        ssl: true
-    },
-    smtp: {
-        host: 'smtp.gmail.com',
-        port: 465,
-        ssl: true
-    }
-}
 var conf = new Configstore('12306MailParser', {
     lastNo: 1,
     failed: []

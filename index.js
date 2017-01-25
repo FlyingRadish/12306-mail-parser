@@ -13,9 +13,11 @@ var config = require('./config');
 [x] 设为已读
 [x] 定时轮询
 [x] 查到站时间
-[ ] 增加识别改签， 过滤退票
+[x] 合并多张
+[x] 增加识别改签， 过滤退票
 */
 
+console.log("%s, start service", new Date());
 var conf = new Configstore('12306MailParser', {
     lastNo: 0,
     failed: []
@@ -82,14 +84,21 @@ function handleMessage(msg, seqno, cb) {
         defaultCharset: 'utf8'
     });
     mailparser.on('end', function(mail) {
-        var result = trainTicketParser.parse(mail.text);
-        if (result) {
-            var receivers = mail.from[0].address;
-            sendMail(receivers, result, function(err) {
+        if (trainTicketParser.isPaidTicketMail(mail.text) || trainTicketParser.isRebookMail(mail.text)) {
+            trainTicketParser.parse(mail.text, function(err, result) {
                 if (err) {
-                    var failed = conf.get('failed');
-                    failed.push(seqno + '');
-                    conf.set('failed', failed);
+                    console.log(err);
+                    markFailed(seqno);
+                    return;
+                } else {
+                    var receivers = mail.from[0].address;
+                    sendMail(receivers, result, function(error, info) {
+                        if (error) {
+                            markFailed(seqno);
+                            return console.log(error);
+                        }
+                        console.log('#' + seqno + ' Message sent: ' + info.response);
+                    });
                 }
             });
         }
@@ -103,6 +112,12 @@ function handleMessage(msg, seqno, cb) {
             mailparser.end();
         })
     });
+}
+
+function markFailed(seqno) {
+    var failed = conf.get('failed');
+    failed.push(seqno + '');
+    conf.set('failed', failed);
 }
 
 function sendMail(email, content, callback) {
@@ -125,13 +140,7 @@ function sendMail(email, content, callback) {
             content: new Buffer(content.attachments, 'utf-8')
         }]
     };
-    transporter.sendMail(mailOptions, function(error, info) {
-        if (error) {
-            callback(error);
-            return console.log(error);
-        }
-        console.log('Message sent: ' + info.response);
-    });
+    transporter.sendMail(mailOptions, callback);
 }
 
 var rule = new schedule.RecurrenceRule();

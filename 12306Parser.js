@@ -2,7 +2,15 @@ var ical = require('ical-generator');
 var request = require('request');
 var util = require('util');
 var async = require('async');
-var config = require('./config')
+var config = require('./config');
+
+function isPaidTicketMail(content) {
+    return /所购车票信息如下/.test(content);
+}
+
+function isRebookMail(content) {
+    return /改签后的车票信息如下/.test(content);
+}
 
 function parse(content, cb) {
     if (!content) {
@@ -51,13 +59,18 @@ function parse(content, cb) {
             });
 
             async.series(tasks, function functionName(err, result) {
-                cb({
-                    attachments: createICal(tickets).toString(),
-                    text: JSON.stringify(tickets)
-                });
+                if (err) {
+                  console.log(err);
+                  cb(err);
+                } else {
+                  cb(null, {
+                      attachments: createICal(tickets).toString(),
+                      text: JSON.stringify(tickets)
+                  });
+                }
             })
         } else {
-            cb({
+            cb(null, {
                 attachments: createICal(tickets).toString(),
                 text: JSON.stringify(tickets)
             });
@@ -122,5 +135,7 @@ function converToISO8601(time) {
 }
 
 module.exports = {
-    parse: parse
+    parse: parse,
+    isPaidTicketMail: isPaidTicketMail,
+    isRebookMail: isRebookMail
 };

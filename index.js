@@ -17,7 +17,7 @@ var config = require('./config');
 */
 
 var conf = new Configstore('12306MailParser', {
-    lastNo: 1,
+    lastNo: 0,
     failed: []
 });
 

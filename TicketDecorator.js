@@ -1,4 +1,7 @@
-var ical = require('ical-generator');
+var VCalendar = require('cozy-ical').VCalendar;
+var VEvent = require('cozy-ical').VEvent;
+var VTodo = require('cozy-ical').VTodo;
+var VAlarm = require('cozy-ical').VAlarm;
 var request = require('request');
 var util = require('util');
 var async = require('async');
@@ -49,9 +52,6 @@ function querySchedule(url, ticket) {
                 if (!ticket['arriveTime']) {
                     console.log('no arrive time with ', ticket);
                 }
-                if (schedule.length > 1) {
-                    schedule = schedule.substring(0, schedule.length-1);
-                }
                 ticket['schedule'] = schedule;
                 cb(null, ticket);
             }
@@ -59,33 +59,43 @@ function querySchedule(url, ticket) {
     }
 }
 
-
-function writeMail(tickets) {
-    var later = Q.defer();
-    var cal = ical({
-        domain: 'houxg.github.com',
-        name: '12306 Calendar',
-        timezone: 'Asia/Hong_Kong',
-        method: 'request'
+function generateICal(tickets) {
+    var cal = new VCalendar({
+        organization: 'ParseThatMail',
+        title: '12306 Calendar',
+        method: 'request',
+        domain: 'houxg.github.com'
     });
     for (var i = 0; i < tickets.length; i++) {
         var ticket = tickets[i];
-        var event = cal.createEvent({
-            start: ticket['departureTime'],
-            summary: ticket['trainNumber'] + ' ' + ticket['from'] + '-' + ticket['to'],
-            description: '',
-            timestamp: ticket['departureTime'],
-            location: ticket['seat']
-        });
+        var desc = '';
+        var arriveTime;
         if (ticket['schedule']) {
-            event.description(ticket['schedule']);
+            desc = ticket['schedule'];
         }
         if (ticket['arriveTime']) {
-            event.end(ticket['arriveTime']);
+            arriveTime = ticket['arriveTime'];
         }
+        var vevent = new VEvent({
+            stampDate: ticket['departureTime'],
+            startDate: ticket['departureTime'],
+            endDate: arriveTime,
+            summary: ticket['trainNumber'] + ' ' + ticket['from'] + '-' + ticket['to'],
+            description: desc,
+            location: ticket['seat'],
+            timezone: 'Asia/Hong_Kong',
+            uid: ticket['trainNumber'] + ticket['departureTime'].toLocaleDateString()
+        });
+        cal.add(vevent);
     }
+    return cal;
+}
+
+function writeMail(tickets) {
+    var later = Q.defer();
+    var ics = generateICal(tickets);
     later.resolve({
-        attachments: cal.toString(),
+        attachments: ics.toString(),
         text: JSON.stringify(tickets)
     });
     return later.promise;

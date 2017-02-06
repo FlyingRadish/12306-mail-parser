@@ -13,7 +13,7 @@ function addArriveTimeAndSchedule(tickets) {
     } else {
         var tasks = [];
         tickets.forEach(function(ticket) {
-            var chinaTime = new Date(ticket['departureTime'].getTime() + 8*1000*3600);
+            var chinaTime = new Date(ticket['departureTime'].getTime() + 8 * 1000 * 3600);
             var timeStr = chinaTime.toISOString();
             timeStr = timeStr.substring(0, timeStr.indexOf('T'));
             var url = util.format(config.api + '?train=%s&date=%s', ticket['trainNumber'], timeStr);
@@ -48,6 +48,9 @@ function querySchedule(url, ticket) {
                 }
                 if (!ticket['arriveTime']) {
                     console.log('no arrive time with ', ticket);
+                }
+                if (schedule.length > 1) {
+                    schedule = schedule.substring(0, schedule.length-1);
                 }
                 ticket['schedule'] = schedule;
                 cb(null, ticket);

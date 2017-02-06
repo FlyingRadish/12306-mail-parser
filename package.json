@@ -1,27 +1,24 @@
 {
-  "name": "maileater",
-  "version": "1.0.0",
-  "description": "none",
-  "main": "./index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "houxg",
-  "license": "MIT",
-  "dependencies": {
-    "configstore": "^2.1.0",
-    "ical-generator": "^0.2.9",
-    "imap": "^0.8.19",
-    "mailparser": "^0.6.1",
-    "node-schedule": "^1.2.0",
-    "nodemailer": "^2.7.0"
-  },
-  "devDependencies": {
-    "configstore": "^2.1.0",
-    "ical-generator": "^0.2.9",
-    "imap": "^0.8.19",
-    "mailparser": "^0.6.1",
-    "node-schedule": "^1.2.0",
-    "nodemailer": "^2.7.0"
-  }
+    "name": "maileater",
+    "version": "1.0.0",
+    "description": "none",
+    "main": "./index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "houxg",
+    "license": "MIT",
+    "dependencies": {
+        "async": "^2.1.4",
+        "configstore": "^2.1.0",
+        "ical-generator": "^0.2.9",
+        "imap": "^0.8.19",
+        "mailparser": "^0.6.1",
+        "node-schedule": "^1.2.0",
+        "nodemailer": "^2.7.0",
+        "request": "^2.79.0",
+        "configstore": "^2.1.0",
+        "html-to-text": "^3.1.0",
+        "q": "^1.4.1"
+    }
 }

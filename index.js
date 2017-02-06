@@ -2,10 +2,13 @@ var Imap = require('imap'),
     inspect = require('util').inspect;
 var MailParser = require('mailparser').MailParser;
 var trainTicketParser = require('./12306Parser.js');
+var trainTicketDecorator = require('./TicketDecorator.js');
 var nodemailer = require('nodemailer');
 var Configstore = require('configstore');
 var schedule = require('node-schedule');
 var config = require('./config');
+var htmlToText = require('html-to-text');
+var Q = require('q');
 /*
 [x] 定时任务
 [x] 发送邮件
@@ -29,8 +32,8 @@ function checkOnce() {
         password: config.password,
         host: config.imap.host,
         port: config.imap.port,
-        tls: config.imap.ssl,
-        debug: console.log
+        // debug: console.log,
+        tls: config.imap.ssl
     });
 
     imap.once('ready', function() {
@@ -84,23 +87,38 @@ function handleMessage(msg, seqno, cb) {
         defaultCharset: 'utf8'
     });
     mailparser.on('end', function(mail) {
-        if (trainTicketParser.isPaidTicketMail(mail.text) || trainTicketParser.isRebookMail(mail.text)) {
-            trainTicketParser.parse(mail.text, function(err, result) {
-                if (err) {
-                    console.log(err);
-                    markFailed(seqno);
-                    return;
-                } else {
-                    var receivers = mail.from[0].address;
-                    sendMail(receivers, result, function(error, info) {
-                        if (error) {
-                            markFailed(seqno);
-                            return console.log(error);
-                        }
-                        console.log('#' + seqno + ' Message sent: ' + info.response);
-                    });
-                }
+        var mailText;
+        if (mail.text) {
+            mailText = mail.text;
+        } else {
+            mailText = htmlToText.fromString(mail.html, {
+                wordwrap: false
             });
+        }
+        if (trainTicketParser.isPaidTicketMail(mailText) || trainTicketParser.isRebookMail(mailText)) {
+            console.log('#' + seqno + ' detect ticket mail, parsing...');
+            trainTicketParser.parse(mailText)
+                .then(function(tickets) {
+                    // console.log('#' + seqno + ' parsed:', tickets);
+                    return trainTicketDecorator.addArriveTimeAndSchedule(tickets);
+                })
+                .then(function(tickets) {
+                    // console.log('#' + seqno + ' addArriveTimeAndSchedule:', tickets);
+                    return trainTicketDecorator.writeMail(tickets);
+                })
+                .then(function(mailContent) {
+                    // console.log('#' + seqno + ' writeMail:', mailContent);
+                    return trainTicketDecorator.sendMail(mail.from[0].address, mailContent);
+                })
+                .catch(function(err) {
+                    console.log('#' + seqno + ' error:', err);
+                    markFailed(seqno);
+                })
+                .done(function(result) {
+                    console.log('#' + seqno + ' done:', result);
+                });
+        } else {
+            console.log('not interested:' + mail.text);
         }
     })
     msg.on('body', function(stream, info) {
@@ -149,3 +167,5 @@ schedule.scheduleJob(rule, function() {
     console.log(new Date(), 'Start a new job');
     checkOnce();
 });
+
+// checkOnce();
